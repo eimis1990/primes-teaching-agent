@@ -16,6 +16,7 @@ import {
 import { ToastContainer, toast } from 'react-toastify'
 import { VoiceRecorder } from "@/components/voice-recorder"
 import { DocumentEditor } from "@/components/document-editor"
+import { ElevenLabsFloatingWidget } from "@/components/voice/elevenlabs-floating-widget"
 import { motion, AnimatePresence } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import { useAuth } from "@/contexts/auth-context"
@@ -84,6 +85,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     const [isReprocessing, setIsReprocessing] = useState(false)
     // Track documents currently being transcribed
     const [processingDocs, setProcessingDocs] = useState<string[]>([])
+    const [isTranscriptEditing, setIsTranscriptEditing] = useState(false)
+    const [transcriptDraft, setTranscriptDraft] = useState("")
+    const [isSavingTranscript, setIsSavingTranscript] = useState(false)
+    const [voiceSyncState, setVoiceSyncState] = useState<"idle" | "syncing" | "synced" | "failed">("idle")
+    const lastVoiceStatusKeyRef = useRef<string | null>(null)
 
     // Inline recording state
     const [isRecording, setIsRecording] = useState(false)
@@ -341,14 +347,98 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         checkAllStatuses()
     }, [project?.documents.length])
 
+    // Background sync to ElevenLabs on topic open/doc updates.
+    // We first check if sync is needed to avoid re-uploading on every visit.
+    useEffect(() => {
+        if (!project?.id) {
+            setVoiceSyncState("idle")
+            return
+        }
+
+        if (project.documents.length <= 0) {
+            setVoiceSyncState("idle")
+            return
+        }
+
+        const statusKey = `${project.id}:${project.documents.length}`
+        if (lastVoiceStatusKeyRef.current === statusKey) return
+        lastVoiceStatusKeyRef.current = statusKey
+
+        const syncIfNeeded = async () => {
+            try {
+                // 1) Check if topic is already up to date in ElevenLabs KB.
+                const statusResponse = await fetch(`/api/voice/sync-topic?topicId=${project.id}`)
+                if (!statusResponse.ok) {
+                    const statusData = await statusResponse.json().catch(() => ({}))
+                    throw new Error(statusData?.error || "Failed to check topic sync status")
+                }
+                const statusData = await statusResponse.json()
+
+                if (!statusData?.needsSync) {
+                    setVoiceSyncState("synced")
+                    return
+                }
+
+                // 2) Only sync when new/updated docs are detected.
+                setVoiceSyncState("syncing")
+                const response = await fetch("/api/voice/sync-topic", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ topicId: project.id }),
+                })
+
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}))
+                    throw new Error(data?.error || "Failed to sync topic knowledge")
+                }
+
+                setVoiceSyncState("synced")
+            } catch (error) {
+                console.error("Background ElevenLabs sync failed:", error)
+                setVoiceSyncState("failed")
+            }
+        }
+
+        syncIfNeeded()
+    }, [project?.id, project?.documents.length])
+
     const handleViewDocument = (doc: Document) => {
         setSelectedDoc(doc)
+        setIsTranscriptEditing(false)
+        setTranscriptDraft(doc.content || "")
         setViewState("viewing")
     }
 
     const handleEditDocument = () => {
         if (selectedDoc) {
+            if (selectedDoc.type === "voice") {
+                setTranscriptDraft(selectedDoc.content || "")
+                setIsTranscriptEditing(true)
+                return
+            }
+
             setViewState("editing")
+        }
+    }
+
+    const handleCancelTranscriptEdit = () => {
+        if (!selectedDoc) return
+        setTranscriptDraft(selectedDoc.content || "")
+        setIsTranscriptEditing(false)
+    }
+
+    const handleSaveTranscriptEdit = async () => {
+        if (!selectedDoc || selectedDoc.type !== "voice") return
+        if (!transcriptDraft.trim() || transcriptDraft === (selectedDoc.content || "")) return
+
+        setIsSavingTranscript(true)
+        try {
+            await handleSaveDocument(transcriptDraft)
+            setIsTranscriptEditing(false)
+        } finally {
+            setIsSavingTranscript(false)
         }
     }
 
@@ -909,10 +999,33 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             <PageHeader
                 title={project.title}
                 description="Manage and view your documents"
+                badge={
+                    <AnimatePresence mode="wait">
+                        {voiceSyncState === "synced" && (
+                            <motion.span
+                                key="voice-synced-badge"
+                                initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                                transition={{ duration: 0.22, ease: "easeOut" }}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-green-400/20 bg-green-400/10 px-2.5 py-1 text-xs text-green-300"
+                            >
+                                <CheckCircle2 size={12} />
+                                Synced
+                            </motion.span>
+                        )}
+                    </AnimatePresence>
+                }
                 className="mb-3 md:mb-4"
             />
 
             <div className="pt-0">
+                <ElevenLabsFloatingWidget
+                    enabled={voiceSyncState === "synced"}
+                    topicId={project.id}
+                    topicTitle={project.title}
+                />
+
                 <AnimatePresence mode="wait">
                     {viewState === "editing" && selectedDoc ? (
                         <motion.div
@@ -981,6 +1094,51 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                         })()}
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {selectedDoc.type === "voice" && (
+                                            <>
+                                                {isTranscriptEditing ? (
+                                                    <>
+                                                        <Button
+                                                            onClick={handleCancelTranscriptEdit}
+                                                            variant="ghost"
+                                                            className="h-8 px-3 text-xs text-white/70 hover:text-white hover:bg-white/10"
+                                                            disabled={isSavingTranscript}
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                        <Button
+                                                            onClick={handleSaveTranscriptEdit}
+                                                            className="h-8 px-3 text-xs bg-[#F34A23] hover:bg-[#d63d1d] text-white"
+                                                            disabled={
+                                                                isSavingTranscript ||
+                                                                !transcriptDraft.trim() ||
+                                                                transcriptDraft === (selectedDoc.content || "")
+                                                            }
+                                                        >
+                                                            {isSavingTranscript ? (
+                                                                <>
+                                                                    <Loader2 size={14} className="animate-spin mr-1.5" />
+                                                                    Saving...
+                                                                </>
+                                                            ) : (
+                                                                "Save Transcript"
+                                                            )}
+                                                        </Button>
+                                                    </>
+                                                ) : (
+                                                    <Button
+                                                        onClick={handleEditDocument}
+                                                        variant="ghost"
+                                                        className="h-8 px-3 text-xs text-white/80 hover:text-white hover:bg-white/10"
+                                                        disabled={processingDocs.includes(selectedDoc.id)}
+                                                    >
+                                                        <Edit2 size={14} className="mr-1.5" />
+                                                        Edit Transcript
+                                                    </Button>
+                                                )}
+                                            </>
+                                        )}
+
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <button className="p-2 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors focus:outline-none border border-transparent hover:border-white/10">
@@ -1093,6 +1251,45 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                                     </a>
                                                 </div>
                                             )
+                                        ) : selectedDoc.type === "voice" ? (
+                                            <div className="rounded-xl border border-white/10 bg-[#111217]/80 p-6">
+                                                <div className="mb-4 flex items-center justify-between">
+                                                    <h4 className="text-xs font-mono text-white/50 uppercase tracking-[0.2em]">
+                                                        Transcript
+                                                    </h4>
+                                                    {processingDocs.includes(selectedDoc.id) && (
+                                                        <span className="inline-flex items-center gap-1.5 text-xs text-yellow-300">
+                                                            <Loader2 size={12} className="animate-spin" />
+                                                            Transcribing...
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {isTranscriptEditing ? (
+                                                    <div>
+                                                        <textarea
+                                                            value={transcriptDraft}
+                                                            onChange={(e) => setTranscriptDraft(e.target.value)}
+                                                            className="w-full min-h-[260px] rounded-lg border border-white/15 bg-black/20 text-white/90 p-4 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#F34A23]/60"
+                                                            placeholder="Edit transcript..."
+                                                            disabled={isSavingTranscript}
+                                                        />
+                                                        <p className="mt-2 text-xs text-white/40">
+                                                            Save updates the current transcript text for this recording.
+                                                        </p>
+                                                    </div>
+                                                ) : selectedDoc.content ? (
+                                                    <div className="space-y-2">
+                                                        {selectedDoc.content.split('\n').map((line, i) => (
+                                                            <p key={i} className="text-white/80 leading-relaxed text-base">
+                                                                {line || '\u00A0'}
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-white/60">No transcript available for this recording yet.</p>
+                                                )}
+                                            </div>
                                         ) : selectedDoc.content ? (
                                             /* Display text content (for text files without storage URL) */
                                             <div className="prose prose-invert max-w-none rounded-xl border border-white/10 bg-[#111217]/80 p-6">

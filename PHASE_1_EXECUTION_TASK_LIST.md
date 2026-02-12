@@ -53,16 +53,16 @@ Enable this end-to-end flow for admins:
 
 ## 2) UI: Transcript Editing State
 
-- [ ] Locate voice recording area and where transcription result is currently rendered.
-- [ ] Add editable transcript UI for newly transcribed recording:
+- [x] Locate voice recording area and where transcription result is currently rendered.
+- [x] Add editable transcript UI for newly transcribed recording:
   - textarea/editor field
   - character counter (optional)
   - clear action buttons
-- [ ] Add action controls:
+- [x] Add action controls:
   - `Save transcript`
   - `Cancel edits`
   - `Re-transcribe` (optional for MVP; include only if low effort)
-- [ ] Add dirty-state detection:
+- [x] Add dirty-state detection:
   - disable `Save` when no changes
   - warn user if they try to leave with unsaved edits (optional)
 
@@ -75,10 +75,10 @@ Enable this end-to-end flow for admins:
 
 ## 3) Save Flow + Canonical Content Update
 
-- [ ] Implement transcript save handler (client).
+- [x] Implement transcript save handler (client).
 - [ ] Implement server update endpoint/action for transcript text.
-- [ ] Ensure save updates **existing** document content (no duplicate document creation).
-- [ ] Preserve immutable audio metadata/file reference.
+- [x] Ensure save updates **existing** document content (no duplicate document creation).
+- [x] Preserve immutable audio metadata/file reference.
 
 ### Guardrails
 - Trim and validate empty transcript edge cases.
@@ -89,10 +89,10 @@ Enable this end-to-end flow for admins:
 
 ## 4) Embeddings Reprocessing on Transcript Save
 
-- [ ] Trigger embedding regeneration after successful transcript update.
-- [ ] Reuse existing embeddings pipeline if available.
+- [x] Trigger embedding regeneration after successful transcript update.
+- [x] Reuse existing embeddings pipeline if available.
 - [ ] Ensure old embeddings for this document are replaced/invalidated correctly.
-- [ ] Reflect processing state in UI:
+- [x] Reflect processing state in UI:
   - `Saving transcript...`
   - `Updating knowledge index...`
   - `Ready`
@@ -173,8 +173,8 @@ Use these as first inspection targets when implementing:
 
 ## 10) Phase 1 Completion Criteria (Must Meet All)
 
-- [ ] Transcript editing is available immediately after transcription.
-- [ ] Saving edits updates the same recorded document content.
+- [x] Transcript editing is available immediately after transcription.
+- [x] Saving edits updates the same recorded document content.
 - [ ] Embeddings are re-generated from edited transcript.
 - [ ] Edited content is reflected in retrieval/chat behavior.
 - [ ] No new regressions in existing knowledge/document workflows.
