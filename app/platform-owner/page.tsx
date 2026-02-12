@@ -4,15 +4,20 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { motion } from "framer-motion"
-import { Building2, Users, Plus, Settings, ArrowRight, Mail, Shield } from "lucide-react"
+import { Building2, Users, Plus, Settings, ArrowRight, Shield, ChevronDown, LogOut } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { QuickActionsCard } from "@/components/dashboard/quick-actions-card"
-import { PageContainer } from "@/components/ui/page-container"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function PlatformOwnerPage() {
-  const { user, loading: authLoading, signOut } = useAuth()
+  const { user, profile, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   const [organizations, setOrganizations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -115,6 +120,15 @@ export default function PlatformOwnerPage() {
     }
   ]
 
+  const handleSignOut = async () => {
+    await signOut()
+    router.push('/login')
+  }
+
+  const userDisplayName = profile?.full_name || user?.email || "User"
+  const userRole = profile?.role || "platform owner"
+  const userInitial = userDisplayName.charAt(0).toUpperCase()
+
   return (
     <div className="min-h-screen bg-background">
       <div className="pt-8 px-6 md:px-12 max-w-7xl mx-auto">
@@ -123,13 +137,38 @@ export default function PlatformOwnerPage() {
             <h1 className="text-3xl font-bold text-white tracking-tight">Platform Owner Panel</h1>
             <p className="text-white/40 mt-2">Manage organizations and platform settings</p>
           </div>
-          <Button 
-            onClick={() => router.push('/platform-owner/organizations/new')}
-            className="bg-gradient-to-r from-[#F34A23] to-[#ff6b4a] hover:from-[#E04420] hover:to-[#F34A23] text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Organization
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button 
+              onClick={() => router.push('/platform-owner/organizations/new')}
+              className="bg-gradient-to-r from-[#F34A23] to-[#ff6b4a] hover:from-[#E04420] hover:to-[#F34A23] text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Organization
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border-white/10 bg-white/5 hover:bg-white/10 text-white px-3"
+                >
+                  <div className="w-7 h-7 rounded-full bg-[#F34A23] text-white text-xs font-semibold flex items-center justify-center mr-2">
+                    {userInitial}
+                  </div>
+                  <div className="hidden md:flex flex-col items-start leading-tight mr-2">
+                    <span className="text-xs font-medium truncate max-w-[140px]">{userDisplayName}</span>
+                    <span className="text-[10px] text-white/60 capitalize">{userRole}</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-white/70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem onClick={handleSignOut} className="text-red-500 cursor-pointer">
+                  <LogOut className="mr-2 size-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <div className="h-[1px] bg-white/10 w-full mb-8" />

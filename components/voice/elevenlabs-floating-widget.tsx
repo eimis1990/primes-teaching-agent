@@ -6,6 +6,12 @@ const WIDGET_SCRIPT_SRC = "https://unpkg.com/@elevenlabs/convai-widget-embed"
 const DEFAULT_AGENT_ID = "agent_3001kfvedcycedjax7j8a49vgrp9"
 const WIDGET_ELEMENT_ID = "primes-elevenlabs-floating-widget"
 
+const debugWidget = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[elevenlabs/widget]", ...args)
+  }
+}
+
 async function ensureWidgetScriptLoaded(): Promise<void> {
   if (typeof window === "undefined") return
 
@@ -65,6 +71,7 @@ export function ElevenLabsFloatingWidget({ enabled, topicId, topicTitle }: Eleve
 
     const mountWidget = async () => {
       if (!enabled) {
+        debugWidget("Widget disabled; removing existing element")
         removeExistingWidget()
         return
       }
@@ -93,6 +100,13 @@ export function ElevenLabsFloatingWidget({ enabled, topicId, topicTitle }: Eleve
         "override-first-message",
         `Hi. I can help with "${topicTitle}". Ask me anything about this topic.`
       )
+      debugWidget("Mounting widget", {
+        agentId,
+        topicId,
+        topicTitle,
+        mode: "embedded-widget",
+        note: "Client tools are configured in ElevenLabs, not registered in app code for widget mode.",
+      })
       document.body.appendChild(widget)
     }
 

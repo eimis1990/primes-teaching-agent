@@ -8,6 +8,10 @@ import {
   uploadTopicDocumentToElevenLabs,
 } from "@/lib/voice/elevenlabs-knowledge"
 
+function isElevenLabsKbSyncEnabled() {
+  return process.env.ELEVENLABS_KB_SYNC_ENABLED === "true"
+}
+
 type TopicDocument = {
   id: string
   title: string
@@ -63,6 +67,13 @@ async function authorizeTopicSyncAccess(supabase: Awaited<ReturnType<typeof crea
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isElevenLabsKbSyncEnabled()) {
+      return NextResponse.json(
+        { error: "ElevenLabs knowledge-base sync is disabled" },
+        { status: 503 }
+      )
+    }
+
     const supabase = await createClient()
     const { topicId } = await request.json()
     if (!topicId) {
@@ -200,6 +211,14 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    if (!isElevenLabsKbSyncEnabled()) {
+      return NextResponse.json({
+        success: true,
+        needsSync: false,
+        disabled: true,
+      })
+    }
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const topicId = searchParams.get("topicId")

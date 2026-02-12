@@ -1,0 +1,29 @@
+{
+  "tool_config": {
+    "type": "client",
+    "name": "search_topic_knowledge_base",
+    "description": "Searches the active topic knowledge base using semantic retrieval. Use this for factual topic-specific questions.",
+    "expects_response": true,
+    "disable_interruptions": false,
+    "execution_mode": "immediate",
+    "parameters": {
+      "type": "object",
+      "required": ["query", "topic_id"],
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "The exact user question to search semantically in the knowledge base."
+        },
+        "topic_id": {
+          "type": "string",
+          "description": "The active topic/folder id. Pass dynamic variable topic_id when available."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["normal", "operational"],
+          "description": "Use normal for detailed responses or operational for concise actionable answers."
+        }
+      }
+    }
+  }
+}

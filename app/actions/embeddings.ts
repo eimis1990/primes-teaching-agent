@@ -13,7 +13,7 @@ export async function processDocumentAction(documentId: string) {
     // Get document details
     const { data: doc, error: fetchError } = await supabase
       .from('documents')
-      .select('id, topic_id, user_id, title, type, content')
+      .select('id, topic_id, org_id, user_id, title, type, content')
       .eq('id', documentId)
       .single()
     
@@ -32,6 +32,7 @@ export async function processDocumentAction(documentId: string) {
     const result = await processDocument(
       doc.id,
       doc.topic_id,
+      doc.org_id || null,
       doc.user_id,
       doc.content,
       doc.title,

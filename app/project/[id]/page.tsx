@@ -89,7 +89,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     const [transcriptDraft, setTranscriptDraft] = useState("")
     const [isSavingTranscript, setIsSavingTranscript] = useState(false)
     const [voiceSyncState, setVoiceSyncState] = useState<"idle" | "syncing" | "synced" | "failed">("idle")
-    const lastVoiceStatusKeyRef = useRef<string | null>(null)
 
     // Inline recording state
     const [isRecording, setIsRecording] = useState(false)
@@ -347,8 +346,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         checkAllStatuses()
     }, [project?.documents.length])
 
-    // Background sync to ElevenLabs on topic open/doc updates.
-    // We first check if sync is needed to avoid re-uploading on every visit.
+    // Sync to ElevenLabs KB is intentionally disabled.
+    // We only toggle voice availability based on whether topic has content.
     useEffect(() => {
         if (!project?.id) {
             setVoiceSyncState("idle")
@@ -360,48 +359,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             return
         }
 
-        const statusKey = `${project.id}:${project.documents.length}`
-        if (lastVoiceStatusKeyRef.current === statusKey) return
-        lastVoiceStatusKeyRef.current = statusKey
-
-        const syncIfNeeded = async () => {
-            try {
-                // 1) Check if topic is already up to date in ElevenLabs KB.
-                const statusResponse = await fetch(`/api/voice/sync-topic?topicId=${project.id}`)
-                if (!statusResponse.ok) {
-                    const statusData = await statusResponse.json().catch(() => ({}))
-                    throw new Error(statusData?.error || "Failed to check topic sync status")
-                }
-                const statusData = await statusResponse.json()
-
-                if (!statusData?.needsSync) {
-                    setVoiceSyncState("synced")
-                    return
-                }
-
-                // 2) Only sync when new/updated docs are detected.
-                setVoiceSyncState("syncing")
-                const response = await fetch("/api/voice/sync-topic", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ topicId: project.id }),
-                })
-
-                if (!response.ok) {
-                    const data = await response.json().catch(() => ({}))
-                    throw new Error(data?.error || "Failed to sync topic knowledge")
-                }
-
-                setVoiceSyncState("synced")
-            } catch (error) {
-                console.error("Background ElevenLabs sync failed:", error)
-                setVoiceSyncState("failed")
-            }
-        }
-
-        syncIfNeeded()
+        setVoiceSyncState("synced")
     }, [project?.id, project?.documents.length])
 
     const handleViewDocument = (doc: Document) => {

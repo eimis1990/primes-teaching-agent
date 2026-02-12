@@ -118,6 +118,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   const addProject = useCallback(async (name: string) => {
     if (!user) return
+    if (!profile?.org_id) {
+      throw new Error('Cannot create topic without organization context')
+    }
 
     try {
       // Insert topic into Supabase
@@ -125,6 +128,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         .from('topics')
         .insert({
           user_id: user.id,
+          org_id: profile.org_id,
           title: name,
           description: null
         })
@@ -153,7 +157,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error adding project:', error)
     }
-  }, [user, supabase])
+  }, [user, profile, supabase])
 
   const removeProject = useCallback(async (id: string) => {
     if (!user) return
@@ -177,12 +181,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       console.error('Cannot add document: No user logged in')
       return
     }
+    if (!profile?.org_id) {
+      throw new Error('Cannot add document without organization context')
+    }
 
     try {
       const { data, error } = await supabase
         .from('documents')
         .insert({
           topic_id: projectId,
+          org_id: profile.org_id,
           user_id: user.id,
           title: doc.title,
           type: doc.type,
@@ -222,7 +230,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       // Re-throw so the calling function knows it failed
       throw error
     }
-  }, [user, supabase])
+  }, [user, profile, supabase])
 
   const updateDocument = useCallback(async (projectId: string, docId: string, updates: Partial<Document>) => {
     if (!user) return

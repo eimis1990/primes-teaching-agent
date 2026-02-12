@@ -8,9 +8,17 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export interface ChunkMetadata {
   documentTitle: string
+  orgId: string | null
   topicId: string
+  documentId: string
   chunkIndex: number
   totalChunks: number
+  section: string
+  updatedAt: string
+  acl: {
+    scope: 'org'
+    roles: string[]
+  }
   documentType: 'text' | 'voice'
 }
 
@@ -163,6 +171,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 export async function processDocument(
   documentId: string,
   topicId: string,
+  orgId: string | null,
   userId: string,
   content: string,
   documentTitle: string,
@@ -205,17 +214,31 @@ export async function processDocument(
       // Prepare records for insertion
       for (let j = 0; j < batch.length; j++) {
         const chunkIndex = i + j
+        const updatedAt = new Date().toISOString()
+        const section = `chunk_${chunkIndex + 1}`
+        const acl = { scope: 'org' as const, roles: ['admin', 'employee'] }
         embeddingRecords.push({
+          org_id: orgId,
           document_id: documentId,
           topic_id: topicId,
           user_id: userId,
           chunk_text: batch[j],
           chunk_index: chunkIndex,
           embedding: embeddings[j],
+          section,
+          acl,
+          updated_at: updatedAt,
           metadata: {
             documentTitle,
+            orgId,
+            topicId,
+            documentId,
+            chunkIndex,
             documentType,
             totalChunks: textChunks.length,
+            section,
+            updatedAt,
+            acl,
           }
         })
       }
@@ -286,7 +309,7 @@ export async function reprocessTopic(
     // Get all documents in the topic
     const { data: documents, error: fetchError } = await supabase
       .from('documents')
-      .select('id, title, type, content')
+      .select('id, title, type, content, org_id, user_id')
       .eq('topic_id', topicId)
       .eq('user_id', userId)
     
@@ -309,6 +332,7 @@ export async function reprocessTopic(
       const result = await processDocument(
         doc.id,
         topicId,
+        doc.org_id || null,
         userId,
         doc.content,
         doc.title,
