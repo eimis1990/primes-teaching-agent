@@ -32,10 +32,14 @@ export default function LoginPage() {
         setError(null)
 
         const supabase = createClient()
+        const redirectUrl = typeof window !== 'undefined' 
+            ? `${window.location.origin}/auth/callback`
+            : '/auth/callback'
+        
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
+                redirectTo: redirectUrl,
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent',

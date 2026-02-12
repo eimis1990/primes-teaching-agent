@@ -28,7 +28,7 @@ export default function EmployeeAssessmentsPage() {
     userEmail: user?.email,
     hasProfile: !!profile,
     profileRole: profile?.role,
-    pathname: window.location.pathname
+    pathname: typeof window !== 'undefined' ? window.location.pathname : 'server'
   })
 
   const loadAssessments = useCallback(async () => {
