@@ -20,6 +20,7 @@ export interface ChunkMetadata {
     roles: string[]
   }
   documentType: 'text' | 'voice'
+  chunkingVersion: string
 }
 
 export interface DocumentChunk {
@@ -28,15 +29,20 @@ export interface DocumentChunk {
   metadata: ChunkMetadata
 }
 
+export type EmbeddingTaskType = 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'
+export const CHUNKING_VERSION = 'v3_sentence_450tok_overlap70'
+export const DEFAULT_CHUNK_TOKENS = 450
+export const DEFAULT_CHUNK_OVERLAP_TOKENS = 70
+
 /**
  * Split text into semantic chunks
- * Aims for 500-1000 tokens per chunk with overlap
+ * Aims for 300-500 tokens per chunk with overlap
  * Handles both paragraph-based and sentence-based splitting
  */
-export function chunkText(text: string, maxTokens: number = 800): string[] {
+export function chunkText(text: string, maxTokens: number = DEFAULT_CHUNK_TOKENS): string[] {
   // Simple approximation: 1 token ≈ 4 characters
   const maxChars = maxTokens * 4
-  const overlapChars = 400 // ~100 tokens overlap for better context
+  const overlapChars = DEFAULT_CHUNK_OVERLAP_TOKENS * 4
   
   const chunks: string[] = []
   
@@ -116,7 +122,7 @@ export function chunkText(text: string, maxTokens: number = 800): string[] {
   }
   
   // Log chunking stats for debugging
-  console.log(`Chunked text: ${normalizedText.length} chars → ${chunks.length} chunks`)
+  console.log(`Chunked text: ${normalizedText.length} chars → ${chunks.length} chunks (policy=${CHUNKING_VERSION})`)
   chunks.forEach((chunk, i) => {
     console.log(`  Chunk ${i + 1}: ${chunk.length} chars (~${Math.round(chunk.length / 4)} tokens)`)
   })
@@ -129,7 +135,10 @@ export function chunkText(text: string, maxTokens: number = 800): string[] {
  * Uses gemini-embedding-001 configured for 768 dimensions
  * FREE up to 1M tokens/month!
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
+export async function generateEmbedding(
+  text: string,
+  taskType: EmbeddingTaskType = 'RETRIEVAL_DOCUMENT'
+): Promise<number[]> {
   try {
     // Check if API key is configured
     if (!process.env.GEMINI_API_KEY) {
@@ -145,7 +154,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     // Generate embedding with 768 dimensions to match DB schema
     const result = await model.embedContent({
       content: { parts: [{ text }] },
-      taskType: 'RETRIEVAL_DOCUMENT',
+      taskType,
       outputDimensionality: 768
     })
     
@@ -235,6 +244,7 @@ export async function processDocument(
             documentId,
             chunkIndex,
             documentType,
+            chunkingVersion: CHUNKING_VERSION,
             totalChunks: textChunks.length,
             section,
             updatedAt,

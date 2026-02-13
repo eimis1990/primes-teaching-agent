@@ -1,0 +1,12 @@
+[
+  {
+    "topic_id": "00000000-0000-0000-0000-000000000000",
+    "query": "Who is the HR director?",
+    "expected_keywords": ["hr director", "human resources director", "name:"]
+  },
+  {
+    "topic_id": "00000000-0000-0000-0000-000000000000",
+    "query": "What are tenant screening steps?",
+    "expected_keywords": ["credit check", "employment verification", "background check"]
+  }
+]

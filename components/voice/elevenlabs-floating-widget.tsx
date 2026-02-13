@@ -5,9 +5,10 @@ import { useEffect, useMemo } from "react"
 const WIDGET_SCRIPT_SRC = "https://unpkg.com/@elevenlabs/convai-widget-embed"
 const DEFAULT_AGENT_ID = "agent_3001kfvedcycedjax7j8a49vgrp9"
 const WIDGET_ELEMENT_ID = "primes-elevenlabs-floating-widget"
+const VOICE_DEBUG = process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_DEBUG === "true"
 
 const debugWidget = (...args: unknown[]) => {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" || VOICE_DEBUG) {
     console.log("[elevenlabs/widget]", ...args)
   }
 }
@@ -40,9 +41,13 @@ async function ensureWidgetScriptLoaded(): Promise<void> {
     script.dataset.loaded = "false"
     script.onload = () => {
       script.dataset.loaded = "true"
+      debugWidget("Widget script loaded successfully")
       resolve()
     }
-    script.onerror = () => resolve()
+    script.onerror = (e) => {
+      console.error("[elevenlabs/widget] Script load failed", e)
+      resolve()
+    }
     document.body.appendChild(script)
   })
 }
@@ -71,7 +76,7 @@ export function ElevenLabsFloatingWidget({ enabled, topicId, topicTitle }: Eleve
 
     const mountWidget = async () => {
       if (!enabled) {
-        debugWidget("Widget disabled; removing existing element")
+        debugWidget("Widget disabled, removing existing element")
         removeExistingWidget()
         return
       }
@@ -84,28 +89,11 @@ export function ElevenLabsFloatingWidget({ enabled, topicId, topicTitle }: Eleve
       const widget = document.createElement("elevenlabs-convai")
       widget.setAttribute("id", WIDGET_ELEMENT_ID)
       widget.setAttribute("agent-id", agentId)
-      // Runtime overrides: enforce a consistent compact appearance from app code.
-      widget.setAttribute("variant", "compact")
-      widget.setAttribute("expandable", "always")
-      widget.setAttribute("action-text", "Ask Questions")
-      widget.setAttribute("dynamic-variables", JSON.stringify({
-        topic_id: topicId,
-        topic_title: topicTitle,
-      }))
-      widget.setAttribute(
-        "override-prompt",
-        `You are assisting with the topic "${topicTitle}". Focus only on content from this topic's documents and politely decline unrelated topics.`
-      )
-      widget.setAttribute(
-        "override-first-message",
-        `Hi. I can help with "${topicTitle}". Ask me anything about this topic.`
-      )
-      debugWidget("Mounting widget", {
+      debugWidget("Mounting default ElevenLabs widget", {
         agentId,
         topicId,
         topicTitle,
-        mode: "embedded-widget",
-        note: "Client tools are configured in ElevenLabs, not registered in app code for widget mode.",
+        note: "No appearance overrides are applied in app code.",
       })
       document.body.appendChild(widget)
     }
@@ -114,6 +102,7 @@ export function ElevenLabsFloatingWidget({ enabled, topicId, topicTitle }: Eleve
 
     return () => {
       cancelled = true
+      debugWidget("Widget effect cleanup")
     }
   }, [enabled, agentId, topicId, topicTitle])
 

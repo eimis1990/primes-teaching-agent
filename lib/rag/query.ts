@@ -38,7 +38,7 @@ export async function semanticSearch(
     const supabase = await createClient()
     
     // Generate embedding for the query
-    const queryEmbedding = await generateEmbedding(query)
+    const queryEmbedding = await generateEmbedding(query, 'RETRIEVAL_QUERY')
     
     console.log(`🔍 Semantic Search: "${query}"`)
     console.log(`  - TopicIds: ${topicIds ? JSON.stringify(topicIds) : 'ALL'}`)

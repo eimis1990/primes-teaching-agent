@@ -105,7 +105,7 @@ export async function getDocumentEmbeddingStatus(documentId: string) {
     
     const { data, error } = await supabase
       .from('document_embeddings')
-      .select('id')
+      .select('id, metadata')
       .eq('document_id', documentId)
       .limit(1)
     
@@ -113,7 +113,8 @@ export async function getDocumentEmbeddingStatus(documentId: string) {
     
     return {
       success: true,
-      hasEmbeddings: (data && data.length > 0)
+      hasEmbeddings: (data && data.length > 0),
+      chunkingVersion: data?.[0]?.metadata?.chunkingVersion || null,
     }
   } catch (error) {
     console.error('Error checking embedding status:', error)

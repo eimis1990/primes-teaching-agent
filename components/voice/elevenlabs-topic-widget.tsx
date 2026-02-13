@@ -5,6 +5,13 @@ import { Mic } from "lucide-react"
 
 const WIDGET_SCRIPT_SRC = "https://unpkg.com/@elevenlabs/convai-widget-embed"
 const DEFAULT_AGENT_ID = "agent_3001kfvedcycedjax7j8a49vgrp9"
+const VOICE_DEBUG = process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_DEBUG === "true"
+
+const debugWidget = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== "production" || VOICE_DEBUG) {
+    console.log("[elevenlabs/topic-widget]", ...args)
+  }
+}
 
 async function ensureWidgetScriptLoaded(): Promise<void> {
   if (typeof window === "undefined") return
@@ -30,9 +37,13 @@ async function ensureWidgetScriptLoaded(): Promise<void> {
     script.dataset.loaded = "false"
     script.onload = () => {
       script.dataset.loaded = "true"
+      debugWidget("Widget script loaded successfully")
       resolve()
     }
-    script.onerror = () => resolve()
+    script.onerror = (e) => {
+      console.error("[elevenlabs/topic-widget] Script load failed", e)
+      resolve()
+    }
     document.body.appendChild(script)
   })
 }
@@ -121,23 +132,7 @@ export function ElevenLabsTopicWidget({
       const widget = document.createElement("elevenlabs-convai")
 
       widget.setAttribute("agent-id", agentId)
-      widget.setAttribute("variant", "full")
-      widget.setAttribute("action-text", `Talk with ${topicTitle} assistant`)
-      widget.setAttribute(
-        "dynamic-variables",
-        JSON.stringify({
-          topic_id: topicId,
-          topic_title: topicTitle,
-        })
-      )
-      widget.setAttribute(
-        "override-prompt",
-        `You are assisting with the topic "${topicTitle}". Focus only on content from this topic's documents and politely decline unrelated topics.`
-      )
-      widget.setAttribute(
-        "override-first-message",
-        `Hi. I can help with "${topicTitle}". Ask me anything about this topic.`
-      )
+      debugWidget("Mounting default ElevenLabs widget", { agentId, topicId, topicTitle })
 
       widgetHostRef.current.appendChild(widget)
     }
